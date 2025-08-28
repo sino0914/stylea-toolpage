@@ -199,36 +199,53 @@
   // ===============================
   // 點擊事件 → 播放音檔 + 彈跳效果
   // ===============================
+  function handleChocolateTap(event) {
+  
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
-  window.addEventListener("click", (event) => {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(chocolateGroup.children);
-    if (intersects.length > 0) {
-  	  const piece = intersects[0].object;
-  	  playNextAudio(); // 播音檔
   
-  	  // 給這塊巧克力一個縮放動畫
-  	  let scale = 1;
-  	  let direction = -1; // 先縮小
-  	  function bounce() {
-  	    scale += direction * 0.05;
-  	    piece.scale.set(scale, scale, scale);
-  
-  	    if (scale <= 0.8) {
-  		  direction = 1; // 到達最小 → 改成放大
-  	    }
-  	    if (scale >= 1) {
-  		  piece.scale.set(1, 1, 1); // 回到正常大小
-  		  return; // 停止動畫
-  	    }
-  	    requestAnimationFrame(bounce);
-  	  }
-  	  bounce();
+  // 兼容 touch 事件取座標
+  let clientX, clientY;
+  if (event.touches && event.touches.length > 0) {
+    clientX = event.touches[0].clientX;
+    clientY = event.touches[0].clientY;
+  } else {
+    clientX = event.clientX;
+    clientY = event.clientY;
+  }
+
+  mouse.x = (clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+
+  const intersects = raycaster.intersectObjects(chocolateGroup.children);
+  if (intersects.length > 0) {
+    const piece = intersects[0].object;
+
+    // 播放下一個音檔
+    playNextAudio();
+
+    // 縮放彈跳效果
+    let scale = 1;
+    let direction = -1;
+    function bounce() {
+      scale += direction * 0.05;
+      piece.scale.set(scale, scale, scale);
+
+      if (scale <= 0.8) direction = 1;
+      if (scale >= 1) {
+        piece.scale.set(1, 1, 1);
+        return;
+      }
+      requestAnimationFrame(bounce);
     }
-  });
+    bounce();
+  }
+}
+  // 電腦用
+window.addEventListener("click", handleChocolateTap);
+// 手機用
+window.addEventListener("touchstart", handleChocolateTap);
   
   let isRotating = true; // 預設旋轉中
   const toggleBtn = document.getElementById("toggleRotate");

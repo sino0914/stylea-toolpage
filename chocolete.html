@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>3D 巧克力</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #2e2a27; }
+    #message {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-size: 2em;
+      background: rgba(0,0,0,0.7);
+      padding: 20px 40px;
+      border-radius: 15px;
+      display: none;
+    }
+	
+	#message {
+	  display: none;
+	  opacity: 0;
+	  transition: opacity 0.5s ease;
+	}
+	#message.show {
+	  display: block;
+	  opacity: 1;
+	}
+  </style>
+</head>
+<body>
+  <div id="message">💕 情人節快樂 💕</div>
+  <div>
+	<div id="messageIcon" style="
+      position: absolute;
+      bottom: 15px;
+	  left: 100px;
+	  font-size: 2.5em;
+	  cursor: pointer;
+	  user-select: none;
+	">💌</div>
+	<div id="toggleRotate" style="
+	  position: absolute;
+	  bottom: 20px;
+	  left: 20px;
+	  font-size: 2em;
+	  cursor: pointer;
+	  user-select: none;
+	">
+	  ⏸️
+	</div>
+  </div>
+  <!-- ⚡ 使用舊版 three.js r124，保證 OrbitControls 掛在全域 -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.124.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.124.0/examples/js/controls/OrbitControls.js"></script>
+
+
+<script>
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  // 燈光
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  const pointLight = new THREE.PointLight(0xffffff, 1);
+  pointLight.position.set(5, 5, 5);
+  scene.add(pointLight);
+  const pointLight2 = new THREE.PointLight(0xffffff, 1);
+  pointLight2.position.set(-5, -5, -5);
+  scene.add(pointLight2);
+
+  camera.position.z = 8;
+
+  // OrbitControls
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+
+  // ===============================
+  // 建立梯形巧克力格子
+  // ===============================
+  const chocolateGroup = new THREE.Group();
+
+  const rows = 3;   // 排數
+  const cols = 5;   // 行數
+  const width = 0.8;   // 底部寬
+  const height = 0.4;  // 厚度
+  const depth = 0.8;   // 底部深
+  const topScale = 0.7; // 上表面縮小比例 (越小越斜)
+
+  const material = new THREE.MeshStandardMaterial({
+    color: 0x4b2e2e,
+    roughness: 0.6,
+    metalness: 0.2
+  });
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      // 基本方形
+      const shape = new THREE.Shape();
+      shape.moveTo(-width/2, -depth/2);
+      shape.lineTo(width/2, -depth/2);
+      shape.lineTo(width/2, depth/2);
+      shape.lineTo(-width/2, depth/2);
+      shape.lineTo(-width/2, -depth/2);
+
+      // 拉伸 (帶斜邊 = 上小下大)
+      const extrudeSettings = {
+        steps: 1,
+        depth: height,
+        bevelEnabled: true,
+        bevelThickness: 0.1,
+        bevelSize: (1 - topScale) * (width/2),
+        bevelSegments: 1
+      };
+
+      const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      const piece = new THREE.Mesh(geometry, material);
+
+      // 定位每塊巧克力
+      piece.position.x = c * (width + 0.15);
+      piece.position.y = r * (depth + 0.15);
+      piece.position.z = -height/2;
+
+      chocolateGroup.add(piece);
+    }
+  }
+  
+  // 讓整塊巧克力對齊中心 (方便 pivot 旋轉)
+  chocolateGroup.position.x = -(cols-1) * (width+0.15) / 2;
+  chocolateGroup.position.y = -(rows-1) * (depth+0.15) / 2;
+
+  // ===============================
+  // 建立 Pivot，控制旋轉中心
+  // ===============================
+  const pivot = new THREE.Group();
+  scene.add(pivot);
+  pivot.add(chocolateGroup);
+
+  // 你可以調整 chocolateGroup 的偏移，改變旋轉中心
+  // 例如：chocolateGroup.position.set(-2,0,0);
+  
+  //讓巧克力傾斜
+  pivot.rotation.z = 0.4;
+  
+  // ===============================
+  // 音檔播放邏輯
+  // ===============================
+  const audioFiles = [
+    "audio0.mp3",
+    "audio1.mp3",
+    "audio2.mp3"
+  ];
+  let currentAudioIndex = 0;
+  let audioPlayer = new Audio();
+
+  function playNextAudio() {
+    audioPlayer.src = audioFiles[currentAudioIndex];
+    audioPlayer.play();
+    currentAudioIndex = (currentAudioIndex + 1) % audioFiles.length; // 播到最後回 0
+  }
+  // ===============================
+  // 點擊事件 → 播放音檔 + 彈跳效果
+  // ===============================
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  window.addEventListener("click", (event) => {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(chocolateGroup.children);
+    if (intersects.length > 0) {
+  	  const piece = intersects[0].object;
+  	  playNextAudio(); // 播音檔
+  
+  	  // 給這塊巧克力一個縮放動畫
+  	  let scale = 1;
+  	  let direction = -1; // 先縮小
+  	  function bounce() {
+  	    scale += direction * 0.05;
+  	    piece.scale.set(scale, scale, scale);
+  
+  	    if (scale <= 0.8) {
+  		  direction = 1; // 到達最小 → 改成放大
+  	    }
+  	    if (scale >= 1) {
+  		  piece.scale.set(1, 1, 1); // 回到正常大小
+  		  return; // 停止動畫
+  	    }
+  	    requestAnimationFrame(bounce);
+  	  }
+  	  bounce();
+    }
+  });
+  
+  let isRotating = true; // 預設旋轉中
+  const toggleBtn = document.getElementById("toggleRotate");
+
+  toggleBtn.addEventListener("click", () => {
+    isRotating = !isRotating; // 切換狀態
+    toggleBtn.innerText = isRotating ? "⏸️" : "▶️";
+  });
+
+  // ===============================
+  // 動畫
+  // ===============================
+  function animate() {
+    requestAnimationFrame(animate);
+	
+    if (isRotating) {
+      pivot.rotation.y += 0.005;
+    }
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  // 窗口縮放
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+  
+  const icon = document.getElementById("messageIcon");
+  const msg = document.getElementById("message");
+
+  icon.addEventListener("click", () => {
+    msg.classList.toggle("show");
+  });
+</script>
+
+</body>
+</html>

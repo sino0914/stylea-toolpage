@@ -185,11 +185,15 @@
 ];
 
   let currentAudioIndex = 0;
-  let audioPlayer = new Audio();
+  const audioPlayers = audioFiles.map(src => {
+  const audio = new Audio(src);
+  audio.preload = "auto"; // 提示瀏覽器預先下載
+  return audio;
+});
 
   function playNextAudio() {
-    audioPlayer.src = audioFiles[currentAudioIndex];
-    audioPlayer.play();
+  audioPlayers[currentAudioIndex].currentTime = 0; // 從頭播放
+  audioPlayers[currentAudioIndex].play();
     currentAudioIndex = (currentAudioIndex + 1) % audioFiles.length; // 播到最後回 0
   }
   // ===============================
